@@ -5,13 +5,14 @@
 const float SPEED_FACTOR = 0.1f;
 const float MARGIN = 0.1f;
 
-void update_fish_positions_cpu(FishArray *in_array, int size, float visible_range, float protected_range, float avoid_factor, float matching_factor, float centering_factor, float turn_factor, float min_speed, float max_speed)
+void update_fish_positions_cpu(FishArray *in_array, int number_of_fish, float visible_range, float protected_range, float avoid_factor, float matching_factor, float centering_factor, float turn_factor, float min_speed, float max_speed)
 {
-	FishArray *out_array = new FishArray();
+    FishArray *out_array;
 
-    for (int fish_idx = 0; fish_idx < size; fish_idx++)
+
+    for (int fish_idx = 0; fish_idx < number_of_fish; fish_idx++)
     {
-        if (fish_idx >= size) return;
+        if (fish_idx >= number_of_fish) return;
 
         Fish fish = {
             in_array->x[fish_idx],
@@ -33,7 +34,7 @@ void update_fish_positions_cpu(FishArray *in_array, int size, float visible_rang
         float close_dx = 0, close_dy = 0, close_dz = 0;
         float speed;
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < number_of_fish; i++)
         {
             if (i == fish_idx) continue;
 

@@ -115,6 +115,21 @@ void cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 
 int main()
 {
+	std::ifstream inputFile("number_of_fish.txt");
+	if (!inputFile.is_open())
+	{
+		std::cerr << "Error: Could not open the file!" << std::endl;
+		return 1;
+	}
+	int number_of_fish;
+	inputFile >> number_of_fish;
+	if (inputFile.fail())
+	{
+		std::cerr << "Error: Could not read a number from the file!" << std::endl;
+		return 1;
+	}
+	inputFile.close();
+
 	cudaError_t cudaStatus;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -196,8 +211,15 @@ int main()
 
 	// initialize the array with random positions and velocities
 	FishArray arr;
+	arr.x = new float[number_of_fish];
+	arr.y = new float[number_of_fish];
+	arr.z = new float[number_of_fish];
+	arr.vx = new float[number_of_fish];
+	arr.vy = new float[number_of_fish];
+	arr.vz = new float[number_of_fish];
+
 	std::srand(std::time(nullptr));
-	for (int i = 0; i < NUMBER_OF_FISH; i++)
+	for (int i = 0; i < number_of_fish; i++)
 	{
 		arr.x[i] = (float)std::rand() / RAND_MAX - 0.5f;
 		arr.y[i] = (float)std::rand() / RAND_MAX - 0.5f;
@@ -205,6 +227,30 @@ int main()
 		arr.vx[i] = ((float)std::rand() / RAND_MAX - 0.5f);
 		arr.vy[i] = ((float)std::rand() / RAND_MAX - 0.5f);
 		arr.vz[i] = ((float)std::rand() / RAND_MAX - 0.5f);
+	}
+
+	FishArray dev_old, dev_new;
+
+	cudaStatus = allocate_fish_array(&dev_old, number_of_fish);
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "allocate_fish_array failed!");
+		return 1;
+	}
+
+	cudaStatus = allocate_fish_array(&dev_new, number_of_fish);
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "allocate_fish_array failed!");
+		return 1;
+	}
+
+	// Initial copy of the array to the device
+	cudaStatus = initial_copy(&dev_old, arr, number_of_fish);
+	if (cudaStatus != cudaSuccess)
+	{
+		fprintf(stderr, "cudaMemcpy failed!");
+		return 1;
 	}
 
 	// set up vertex data
@@ -228,8 +274,8 @@ int main()
 		3, 0, 4
 	};
 
-	glm::mat4 instanceMatrices[NUMBER_OF_FISH];
-	for (int i = 0; i < NUMBER_OF_FISH; ++i)
+	glm::mat4 *instanceMatrices = new glm::mat4[number_of_fish];
+	for (int i = 0; i < number_of_fish; ++i)
 	{
 		instanceMatrices[i] = glm::mat4(1.0f);
 	}
@@ -255,7 +301,7 @@ int main()
 
 	// Set up instance matrix data
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, NUMBER_OF_FISH * sizeof(glm::mat4), &instanceMatrices[0], GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, number_of_fish * sizeof(glm::mat4), &instanceMatrices[0], GL_DYNAMIC_DRAW);
 	std::size_t vec4Size = sizeof(glm::vec4);
 	for (int i = 0; i < 4; ++i)
 	{
@@ -320,7 +366,7 @@ int main()
 		if (animation)
 			if (!cpu_version)
 			{
-				cudaStatus = update_fish_positions_cuda(&arr, NUMBER_OF_FISH, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
+				cudaStatus = update_fish_positions_cuda(&arr, &dev_old, &dev_new, number_of_fish, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
 				if (cudaStatus != cudaSuccess)
 				{
 					fprintf(stderr, "update_fish_positions failed!");
@@ -328,10 +374,10 @@ int main()
 				}
 			}
 			else
-				update_fish_positions_cpu(&arr, NUMBER_OF_FISH, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
+				update_fish_positions_cpu(&arr, number_of_fish, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
 
 		// Update instance matrices based on new positions and velocities
-		for (int i = 0; i < NUMBER_OF_FISH; i++)
+		for (int i = 0; i < number_of_fish; i++)
 		{
 			float angle_yaw = atan2f(arr.vy[i], arr.vx[i]);
 			float angle_pitch = atan2f(arr.vz[i], sqrtf(arr.vx[i] * arr.vx[i] + arr.vy[i] * arr.vy[i]));
@@ -346,12 +392,12 @@ int main()
 
 		// Update instance buffer
 		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, NUMBER_OF_FISH * sizeof(glm::mat4), &instanceMatrices[0]);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, number_of_fish * sizeof(glm::mat4), &instanceMatrices[0]);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		// Draw instances
 		glBindVertexArray(VAO);
-		glDrawElementsInstanced(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0, NUMBER_OF_FISH);
+		glDrawElementsInstanced(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0, number_of_fish);
 		glBindVertexArray(0);
 
 		// Start new ImGui frame
@@ -413,6 +459,9 @@ int main()
 	glfwTerminate();
 	return 0;
 
+	cudaStatus = 
+
+
 	// cudaDeviceReset must be called before exiting in order for profiling and
 	// tracing tools such as Nsight and Visual Profiler to show complete traces.
 	cudaStatus = cudaDeviceReset();
@@ -421,6 +470,15 @@ int main()
 		fprintf(stderr, "cudaDeviceReset failed!");
 		return 1;
 	}
+
+	delete arr.x;
+	delete arr.y;
+	delete arr.z;
+	delete arr.vx;
+	delete arr.vy;
+	delete arr.vz;
+
+	delete instanceMatrices;
 
 	return 0;
 }
