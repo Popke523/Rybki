@@ -1,3 +1,3 @@
 # Rybki
 
-A realistic shoal of fish animation using the boids algorithm, OpenGL for rendering and CUDA for parallel processing.
+A 3D simulation of a shoal of fish using the boids algorithm for group behavior, with OpenGL for rendering and CUDA for parallel computation.
