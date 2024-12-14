@@ -218,6 +218,14 @@ int main()
 	arr.vy = new float[number_of_fish];
 	arr.vz = new float[number_of_fish];
 
+	FishArray arr2;
+	arr2.x = new float[number_of_fish];
+	arr2.y = new float[number_of_fish];
+	arr2.z = new float[number_of_fish];
+	arr2.vx = new float[number_of_fish];
+	arr2.vy = new float[number_of_fish];
+	arr2.vz = new float[number_of_fish];
+
 	std::srand(std::time(nullptr));
 	for (int i = 0; i < number_of_fish; i++)
 	{
@@ -374,7 +382,7 @@ int main()
 				}
 			}
 			else
-				update_fish_positions_cpu(&arr, number_of_fish, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
+				update_fish_positions_cpu(&arr, &arr2, number_of_fish, visible_range, protected_range, avoid_factor, matching_factor, centering_factor, turn_factor, min_speed, max_speed);
 
 		// Update instance matrices based on new positions and velocities
 		for (int i = 0; i < number_of_fish; i++)
@@ -458,8 +466,6 @@ int main()
 	// ------------------------------------------------------------------
 	glfwTerminate();
 	return 0;
-
-	cudaStatus = 
 
 
 	// cudaDeviceReset must be called before exiting in order for profiling and
